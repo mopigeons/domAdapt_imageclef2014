@@ -9,12 +9,13 @@ from scipy.sparse import csc_matrix
 import datetime
 import pylab as pl
 from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import load_iris
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.grid_search import GridSearchCV
 import optunity
 import optunity.metrics
+from sklearn.preprocessing import StandardScaler
+
 
 
 
@@ -33,7 +34,7 @@ def svm(data):
         os.mkdir(os.path.join(results_directory_name, str(data.currentY), 'svm_fr'))
     ut.log_print(result_file,
                  '<==========  BEGIN @ ' + datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y") +  ' ============>\n')
-
+    best_params = []
     for s in range(len(data.Xsource)):
         print("\n--- Domain:",s,"---\n")
         # création de répertoires results/svm_fr/decision_values/...
@@ -54,10 +55,16 @@ def svm(data):
         #glue together the labelled data from the source and target domains
         Xsparse = sp.sparse.vstack([data.Xtarget, csc_matrix(Xsource)])
         Xdata = Xsparse.todense()
+        #scale the data
+        #scaler = StandardScaler()
+        #Xdata = scaler.fit_transform(Xdata)
         #get the associated labels for all training points
         y = np.concatenate((data.ytarget, ysource))
         src_index = [i + data.Xtarget.shape[0] for i in range(Xsource.shape[0])]
         tar_index = [i for i in range(data.Xtarget.shape[0])]
+
+
+
         # passé ici: ligne 26+ du code matlab
         for r in range(data.nRound):
             tar_train_index = data.tar_train_index[r]
@@ -68,28 +75,31 @@ def svm(data):
                 decision_values = io.loadmat(dv_file)['decision_values']
             else:
                 Ymatrix = np.asarray(np.squeeze(y[train_index]), dtype=float)
+
                 Xmatrix = np.asarray(Xdata[train_index])
 
+                classifier = prepare_svm(Xmatrix, Ymatrix)
+                classifier_params = classifier.get_params()
+                best_params.append(classifier_params)
+                print(best_params)
 
-                scaler = StandardScaler()
-                Xscaled = scaler.fit_transform(Xmatrix)
+                #Xscaled_tar = scaler.fit_transform(Xdata[tar_index])
 
-                classifier = prepare_svm(Xscaled, Ymatrix)
 
-                Xscaled_tar = scaler.fit_transform(Xdata[tar_index])
 
-                decision_values = classifier.decision_function(Xscaled_tar)
+                decision_values = classifier.decision_function(Xdata[tar_index])
                 decision_values = np.array(decision_values)
                 #print("DV:", decision_values)
 
-                Xscaled_train = scaler.fit_transform(Xdata[train_index])
-                training_predictions = classifier.predict(Xscaled_train)
+                training_predictions = classifier.predict(Xmatrix)
                 print("Training Accuracy", ut.final_accuracy(training_predictions, y[train_index]))
 
-                predictions = classifier.predict(Xscaled_tar)
+                predictions = classifier.predict(Xdata[tar_index])
                 print("Test Accuracy", ut.final_accuracy(predictions, y[tar_index]))
                 io.savemat(dv_file, {'decision_values': decision_values})
-                ut.save_mmd_fr(data, classifier.get_params()['kernel'], get_SVM_kernel_param(classifier))
+
+
+                ut.save_mmd_fr(data, best_params, s)
 
 
 def get_SVM_kernel_param(classifier):
@@ -134,7 +144,7 @@ def prepare_svm(X, Y):
 
     svm_tuned_auroc = cv_decorator(svm_tuned_auroc)
 
-    optimal_svm_pars, info, _ = optunity.maximize_structured(svm_tuned_auroc, space, num_evals=150)
+    optimal_svm_pars, info, _ = optunity.maximize_structured(svm_tuned_auroc, space, num_evals=70)
     print("Optimal parameters:"+str(optimal_svm_pars))
     print("AUROC of tuned SVM: %1.3f" % info.optimum)
     classifier = build_svc(optimal_svm_pars)
