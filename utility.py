@@ -1,10 +1,7 @@
 import scipy.io as io
 import numpy as np
-import scipy as sp
 import os
 import os.path
-from scipy.sparse import csc_matrix
-from scipy.spatial.distance import pdist, squareform
 from sklearn.metrics.pairwise import linear_kernel, polynomial_kernel, rbf_kernel, sigmoid_kernel
 from sklearn.preprocessing import StandardScaler
 from copy import deepcopy
@@ -56,7 +53,7 @@ def convert_label_list(labels, currentLabel):
             labels[i] = 1
         elif currentLabel == 3 and " bird" in labels[i]:
             labels[i] = 1
-        elif currentLabel == 4 and" boat" in labels[i]:
+        elif currentLabel == 4 and " boat" in labels[i]:
             labels[i] = 1
         elif currentLabel == 5 and " bottle" in labels[i]:
             labels[i] = 1
@@ -137,10 +134,6 @@ def load_data_from_files(index):
         endpoint = offset+len(data.Xsource[i])
         data.Xsource[i] = scaledData[offset:endpoint]
 
-
-
-
-
     data.tar_train_index.append([i for i in range(NUM_TAR_TRAIN_FILES)])
     data.tar_train_index = np.asarray(data.tar_train_index)
     data.tar_test_index.append([i for i in range(NUM_TAR_TEST_FILES)])
@@ -153,7 +146,6 @@ def calc_kernel(kernel_type, params, X):
     if kernel_type == "linear":
         K = linear_kernel(X)
     elif kernel_type == "poly":
-        #todo: can remove the isnan "ifs" once the nan problem is solved
         if np.isnan(X).any():
             print("X trouble before kernel")
         K = polynomial_kernel(X, degree=params['degree'], coef0=params['coef0'])
@@ -231,35 +223,21 @@ def save_mmd_fr(data, params, sourceDomainIndex):
 
     Xstacked = np.concatenate((data.Xtarget, Xsource), axis=0)
 
-    #scale the data
-    #scaler = StandardScaler()
-    #Xstacked = scaler.fit_transform(Xstacked)
-
 
     src_index = [i + data.Xtarget.shape[0] for i in range(Xsource.shape[0])]
-    #tar_index = np.array([i for i in range(data.Xtarget[0].shape[0])]).transpose()
     tar_index = np.array([i for i in range(data.Xtarget.shape[0])]).transpose()
-    #ss = np.zeros((len(src_index)+len(tar_index), 1))
     ss = np.zeros(len(src_index)+len(tar_index))
 
     ss[src_index] = 1/len(src_index)
     ss[tar_index] = -1/len(tar_index)
     K = calc_kernel(params[sourceDomainIndex]['kernel'], params[sourceDomainIndex], Xstacked)
-
-
-    #K[np.ix_(src_index, src_index)] = np.multiply(K[src_index][:, src_index], 2)
-    #K[np.ix_(tar_index, tar_index)] = np.multiply(K[tar_index][:, tar_index], 2)
     mmd_file = os.path.join(mmd_dir, 'mmd.mat')
     if os.path.exists(mmd_file):
         mmd_value = io.loadmat(mmd_file)['mmd_value']
     else:
-        #mmd_value = (ss.transpose().flatten().dot(K)).dot(ss.flatten())
         K = np.squeeze(K)
         mmdvalaux = ss.dot(K)
-        #print(mmdvalaux)
-        #print(ss.transpose())
         mmd_value = mmdvalaux.dot(ss.transpose())
-        print("utility mmd value", mmd_value)
         io.savemat(mmd_file, {'mmd_value': mmd_value})
 
 

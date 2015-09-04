@@ -5,19 +5,9 @@ import numpy as np
 np.set_printoptions(threshold=np.nan)
 import scipy as sp
 import scipy.io as io
-from scipy.sparse import csr_matrix
-from scipy.sparse import csc_matrix
 import sklearn.svm as svm
 import utility as ut
-import optunity
-import optunity.metrics
-import time
-import math
-import itertools
-import matplotlib.pylab as plt
 from sklearn.grid_search import GridSearchCV
-from sklearn.grid_search import RandomizedSearchCV
-from sklearn.preprocessing import StandardScaler
 import copy
 
 
@@ -26,8 +16,6 @@ BETA = 1
 LAMBDA_L = 1
 LAMBDA_D = 1
 THR = 0.2
-#C = 1
-#EPSILON = 0.1
 
 def second_phase(data, results):
     result_directory_name = 'results'
@@ -36,8 +24,6 @@ def second_phase(data, results):
         os.mkdir(result_directory_name)
     if not (os.path.exists(os.path.join(result_directory_name, 'secondPhase'))):
         os.mkdir(os.path.join(result_directory_name, 'secondPhase'))
-    #scaler = StandardScaler()
-    #Xdata = scaler.fit_transform(data.Xtarget)
     Xdata = copy.deepcopy(data.Xtarget)
     K = Xdata.dot(Xdata.T)
     tar_train_index = data.tar_train_index
@@ -87,7 +73,7 @@ def second_phase(data, results):
         formatted_results = np.asarray(formatted_results).reshape((len(formatted_results),1))
         results = np.hstack((results, formatted_results))
 
-
+        print("DV", dv[tar_test_index])
         accuracy = ut.final_accuracy(np.squeeze(dv[tar_test_index]), np.squeeze(data.ytarget[tar_test_index]))
         print("Accuracy?!", accuracy, "\n")
 
@@ -120,12 +106,9 @@ def train_fast_dam(K, y, f_s, gamma_s, theta1, theta2, f_p, lambda_):
 
     #check the differences between y and haty. Is dividing by the sum of gammas ok? (should be 1 and therefore effectless)
 
-
     ind = np.where(np.abs(haty[idx_u]) < THR)
     v_ind = np.concatenate((idx_l, np.setdiff1d(idx_u, idx_u[ind])))
 
-    #print("hatk", hatK[v_ind][:, v_ind])
-    #print("haty", haty[v_ind])
     model = prepare_svm(hatK[v_ind][:, v_ind], haty[v_ind])
     model.support_ = v_ind[model.support_]
 
@@ -134,7 +117,6 @@ def train_fast_dam(K, y, f_s, gamma_s, theta1, theta2, f_p, lambda_):
     else:
         Ktest = K
     #print("Testing data instances", Ktest[:, model.support_])
-
 
     aux1 = Ktest[:, model.support_]
     aux2 = aux1.dot(np.asarray(model.dual_coef_).flatten())
@@ -145,7 +127,7 @@ def prepare_svm(K, y):
     param_grid={"C": np.logspace(-6, 4, 10),
                 "epsilon": np.logspace(-6,4, 10)}
     regressor = svm.SVR(kernel="precomputed")
-    svr = GridSearchCV(regressor, cv=3, param_grid=param_grid, n_jobs=4)
+    svr = GridSearchCV(regressor, cv=10, param_grid=param_grid, n_jobs=4)
     svr.fit(K, y)
     svr_tuned_params = svr.best_params_
     print("tuned params", svr_tuned_params)

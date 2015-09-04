@@ -7,14 +7,9 @@ import numpy as np
 import scipy as sp
 from scipy.sparse import csc_matrix
 import datetime
-import pylab as pl
 from sklearn.svm import SVC
-from sklearn.datasets import load_iris
-from sklearn.cross_validation import StratifiedKFold
-from sklearn.grid_search import GridSearchCV
 import optunity
 import optunity.metrics
-from sklearn.preprocessing import StandardScaler
 
 
 
@@ -78,12 +73,11 @@ def svm(data):
 
                 Xmatrix = np.asarray(Xdata[train_index])
 
-                classifier = prepare_svm(Xmatrix, Ymatrix)
+                classifier = prepare_svm(Xmatrix, Ymatrix, False)
                 classifier_params = classifier.get_params()
                 best_params.append(classifier_params)
-                print(best_params)
+                #print(best_params)
 
-                #Xscaled_tar = scaler.fit_transform(Xdata[tar_index])
 
 
 
@@ -114,14 +108,14 @@ def get_SVM_kernel_param(classifier):
     return kernel_param
 
 
-def prepare_svm(X, Y):
+def prepare_svm(X, Y, prob_setting):
     '''
     Code inspired by http://optunity.readthedocs.org/en/latest/notebooks/notebooks/sklearn-svc.html#tune-svc-without-deciding-the-kernel-in-advance
     '''
     cv_decorator = optunity.cross_validated(x=X, y=Y, num_folds=10)
-    space = {'kernel': {'linear': {'C': [0, 3], 'class_weight_param': [1, 22]},
-                        'rbf': {'logGamma': [-5, 1], 'C': [0, 10], 'class_weight_param': [1, 22]},
-                        'poly': {'degree': [2, 5], 'C': [0, 5], 'coef0': [0, 2],
+    space = {'kernel': {'linear': {'C': [0, 1000], 'class_weight_param': [1, 22]},
+                        'rbf': {'logGamma': [-5, 1], 'C': [0, 1000], 'class_weight_param': [1, 22]},
+                        'poly': {'degree': [2, 5], 'C': [0, 1000], 'coef0': [0, 100],
                                  'class_weight_param': [1, 22]}}}
 
     def train_model(x_train, y_train, kernel, C, logGamma, degree, coef0, classWeightParam):
@@ -144,26 +138,27 @@ def prepare_svm(X, Y):
 
     svm_tuned_auroc = cv_decorator(svm_tuned_auroc)
 
-    optimal_svm_pars, info, _ = optunity.maximize_structured(svm_tuned_auroc, space, num_evals=70)
+    optimal_svm_pars, info, _ = optunity.maximize_structured(svm_tuned_auroc, space, num_evals=200)
     print("Optimal parameters:"+str(optimal_svm_pars))
     print("AUROC of tuned SVM: %1.3f" % info.optimum)
-    classifier = build_svc(optimal_svm_pars)
+    classifier = build_svc(optimal_svm_pars, prob_setting)
     classifier.fit(X, Y)
     return classifier
 
 
-def build_svc(optimal_parameters):
+def build_svc(optimal_parameters, prob_setting):
     optimal_kernel = optimal_parameters['kernel']
     if optimal_kernel == 'linear':
         model = SVC(kernel=optimal_parameters['kernel'], C=optimal_parameters['C'],
-                    class_weight={1: optimal_parameters['class_weight_param']})
+                    class_weight={1: optimal_parameters['class_weight_param']}, probability=prob_setting)
     elif optimal_kernel == 'poly':
         model = SVC(kernel=optimal_parameters['kernel'], C=optimal_parameters['C'], degree=optimal_parameters['degree'],
-                    coef0=optimal_parameters['coef0'], class_weight={1: optimal_parameters['class_weight_param']})
+                    coef0=optimal_parameters['coef0'], class_weight={1: optimal_parameters['class_weight_param']},
+                    probability=prob_setting)
     elif optimal_kernel == 'rbf':
         model = SVC(kernel=optimal_parameters['kernel'], C=optimal_parameters['C'],
                     gamma=10 ** optimal_parameters['logGamma'],
-                    class_weight={1: optimal_parameters['class_weight_param']})
+                    class_weight={1: optimal_parameters['class_weight_param']}, probability=prob_setting)
     else:
         raise ValueError("Unknown kernel function: %s" % optimal_kernel)
     return model
