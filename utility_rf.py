@@ -1,16 +1,10 @@
 __author__ = 'Simon'
 
-import scipy.io as io
 import numpy as np
-import scipy as sp
 import os
 import os.path
-from scipy.sparse import csc_matrix
-from scipy.spatial.distance import pdist, squareform
-from sklearn.metrics.pairwise import linear_kernel, polynomial_kernel, rbf_kernel, sigmoid_kernel
 from sklearn.preprocessing import StandardScaler
 from copy import deepcopy
-from numpy.linalg import norm
 
 
 NUM_SOURCE_DATA_SETS = 4

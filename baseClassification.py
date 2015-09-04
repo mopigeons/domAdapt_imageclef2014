@@ -50,17 +50,11 @@ def svm(data):
         #glue together the labelled data from the source and target domains
         Xsparse = sp.sparse.vstack([data.Xtarget, csc_matrix(Xsource)])
         Xdata = Xsparse.todense()
-        #scale the data
-        #scaler = StandardScaler()
-        #Xdata = scaler.fit_transform(Xdata)
         #get the associated labels for all training points
         y = np.concatenate((data.ytarget, ysource))
         src_index = [i + data.Xtarget.shape[0] for i in range(Xsource.shape[0])]
         tar_index = [i for i in range(data.Xtarget.shape[0])]
 
-
-
-        # passé ici: ligne 26+ du code matlab
         for r in range(data.nRound):
             tar_train_index = data.tar_train_index[r]
             tar_test_index = data.tar_test_index[r]
@@ -76,14 +70,9 @@ def svm(data):
                 classifier = prepare_svm(Xmatrix, Ymatrix, False)
                 classifier_params = classifier.get_params()
                 best_params.append(classifier_params)
-                #print(best_params)
-
-
-
 
                 decision_values = classifier.decision_function(Xdata[tar_index])
                 decision_values = np.array(decision_values)
-                #print("DV:", decision_values)
 
                 training_predictions = classifier.predict(Xmatrix)
                 print("Training Accuracy", ut.final_accuracy(training_predictions, y[train_index]))
@@ -91,7 +80,6 @@ def svm(data):
                 predictions = classifier.predict(Xdata[tar_index])
                 print("Test Accuracy", ut.final_accuracy(predictions, y[tar_index]))
                 io.savemat(dv_file, {'decision_values': decision_values})
-
 
                 ut.save_mmd_fr(data, best_params, s)
 
